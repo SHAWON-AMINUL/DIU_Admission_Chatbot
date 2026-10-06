@@ -1,8 +1,8 @@
-🎓 DIU Admission Chatbot (RAG-Powered)
+🎓 **DIU Admission Chatbot (RAG-Powered)**
 
 An intelligent, context-aware Admission Chatbot designed for Daffodil International University (DIU). This project leverages Retrieval-Augmented Generation (RAG), combining BM25 Keyword Search and Cosine Vector Similarity Search (Hybrid Search) to deliver highly accurate admission guidance in both English and Bengali.
 
-✨ Features
+**✨ Features**
 
 Hybrid Search Retrieval: Combines BM25 lexical search with dense vector similarity search for precise document context extraction.
 
@@ -16,7 +16,7 @@ Ingestion Pipeline: Automatic text chunking, document parsing, and database seed
 
 Admin & Chat Endpoints: Separate endpoints for client chat interaction and admin management.
 
-📁 Repository Structure
+**📁 Repository Structure**
 
 diu_admission_chatbot/
 ├── app/
@@ -38,7 +38,7 @@ diu_admission_chatbot/
 └── README.md         # Project documentation
 
 
-🛠️ Tech Stack
+🛠️** Tech Stack**
 
 Backend Framework: FastAPI / Python
 
@@ -50,7 +50,7 @@ Database: PostgreSQL / Vector Store
 
 Package Manager: uv / pip
 
-🚀 Getting Started
+🚀** Getting Started**
 
 1. Prerequisites
 
@@ -97,7 +97,7 @@ uvicorn app.main:app --reload
 Access the Chatbot UI:
 Open your browser and navigate to http://localhost:8000.
 
-📄 API Documentation
+📄 **API Documentation**
 
 Once the server is running, you can explore the interactive API docs:
 
@@ -105,6 +105,6 @@ Swagger UI: http://localhost:8000/docs
 
 ReDoc: http://localhost:8000/redoc
 
-📝 License
+📝** License**
 
 This project is open-source and available under the MIT License.
