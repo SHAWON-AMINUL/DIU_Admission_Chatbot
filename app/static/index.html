@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DIU Admission — Ingestion Pipeline</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --panel: #ffffff;
+    --ink: #16181d;
+    --muted: #6b7280;
+    --line: #e3e6ea;
+    --accent: #1f6feb;
+    --ok: #157f3d;
+    --warn: #9a6700;
+    --bad: #b42318;
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115; --panel: #171a21; --ink: #e8eaed; --muted: #9aa3af;
+      --line: #262b35; --accent: #4c8dff; --ok: #3fb950; --warn: #d29922; --bad: #f85149;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  header {
+    background: var(--panel); border-bottom: 1px solid var(--line);
+    padding: 14px 22px; display: flex; align-items: center; gap: 16px;
+    flex-wrap: wrap; position: sticky; top: 0; z-index: 10;
+  }
+  h1 { font-size: 16px; margin: 0; font-weight: 650; }
+  .health { display: flex; gap: 14px; margin-left: auto; flex-wrap: wrap; font-size: 12px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+  .dot.ok { background: var(--ok); } .dot.bad { background: var(--bad); }
+  main { padding: 22px; max-width: 1180px; margin: 0 auto; display: grid; gap: 20px; }
+  .panel {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 18px;
+  }
+  .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--muted); margin: 0 0 14px; font-weight: 600; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 860px) { .grid2 { grid-template-columns: 1fr; } }
+  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  input, textarea, select {
+    width: 100%; padding: 9px 11px; border: 1px solid var(--line);
+    border-radius: 7px; background: var(--bg); color: var(--ink);
+    font: inherit; margin-bottom: 12px;
+  }
+  textarea { min-height: 130px; resize: vertical; font-family: ui-monospace, monospace; font-size: 12.5px; }
+  button {
+    border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+    border-radius: 7px; padding: 7px 13px; font: inherit; cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:hover { opacity: .9; color: #fff; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--muted); padding: 8px 10px; border-bottom: 1px solid var(--line); font-weight: 600; }
+  td { padding: 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  .pill {
+    display: inline-block; padding: 2px 8px; border-radius: 20px;
+    font-size: 11px; font-weight: 600; white-space: nowrap;
+    border: 1px solid currentColor;
+  }
+  .pill.draft { color: var(--muted); }
+  .pill.published { color: var(--accent); }
+  .pill.verified { color: var(--warn); }
+  .pill.progress { color: var(--warn); }
+  .pill.complete { color: var(--ok); }
+  .pill.failed { color: var(--bad); }
+  .stages { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+  .stage {
+    flex: 1; min-width: 92px; padding: 9px 10px; border: 1px solid var(--line);
+    border-radius: 7px; font-size: 11.5px; text-align: center; color: var(--muted);
+  }
+  .stage b { display: block; font-size: 17px; color: var(--ink); font-weight: 650; }
+  .muted { color: var(--muted); font-size: 12px; }
+  .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chunk {
+    border: 1px solid var(--line); border-radius: 7px; padding: 10px;
+    margin-bottom: 8px; background: var(--bg);
+  }
+  .chunk pre { margin: 6px 0 0; white-space: pre-wrap; word-break: break-word;
+    font-size: 12px; font-family: ui-monospace, monospace; }
+  .hit { border-left: 3px solid var(--accent); padding: 9px 12px; margin-bottom: 10px; background: var(--bg);
+    border-radius: 0 7px 7px 0; }
+  .hit .meta { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .notice { padding: 10px 12px; border-radius: 7px; font-size: 12.5px; margin-bottom: 12px;
+    border: 1px solid var(--line); }
+  .notice.warn { color: var(--warn); }
+  .scroll { overflow-x: auto; }
+  .toast { position: fixed; bottom: 20px; right: 20px; background: var(--panel);
+    border: 1px solid var(--line); border-left: 3px solid var(--accent);
+    padding: 11px 15px; border-radius: 7px; font-size: 13px; box-shadow: 0 6px 20px rgba(0,0,0,.14);
+    opacity: 0; transform: translateY(8px); transition: .2s; pointer-events: none; }
+  .toast.show { opacity: 1; transform: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>DIU Admission — Ingestion Pipeline</h1>
+  <div class="health" id="health"><span class="muted">checking…</span></div>
+</header>
+
+<main>
+
+  <section class="panel">
+    <h2>Pipeline state</h2>
+    <div class="stages" id="stages"></div>
+    <div class="muted" id="configline"></div>
+  </section>
+
+  <div class="grid2">
+    <section class="panel">
+      <h2>1 · Create post</h2>
+      <label for="title">Title</label>
+      <input id="title" placeholder="Tuition fee for CSE, Fall 2026">
+      <label for="body">Body — description text (attachments are out of MVP scope)</label>
+      <textarea id="body" placeholder="Paste admission content here. Blank lines separate sections."></textarea>
+      <button class="primary" onclick="createPost()">Create as Draft</button>
+    </section>
+
+    <section class="panel">
+      <h2>Workflow</h2>
+      <p class="muted" style="margin-top:0">
+        Draft → Post/publish → <b>director approval</b> → verify → AI ingest.
+        Verification is what fires the pipeline; it runs in the background so the
+        verify request never blocks on embedding.
+      </p>
+      <div class="notice warn">
+        <b>Known MVP limits.</b> Attachments are not ingested. There is no
+        retry/resume or re-ingest-on-edit. Full-text search uses the
+        <code>english</code> config, so for Bangla queries the lexical branch
+        contributes nothing and retrieval is vector-only.
+      </div>
+      <button onclick="seedDemo()">Load sample posts</button>
+      <button onclick="ingestAll()">Ingest all eligible</button>
+    </section>
+  </div>
+
+  <section class="panel">
+    <h2>2 · Posts</h2>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th>ID</th><th>Title</th><th>Status</th><th>Approval</th>
+              <th>Chunks</th><th>Vectors</th><th>Tokens</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="posts"><tr><td colspan="8" class="muted">loading…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel" id="chunkpanel" hidden>
+    <h2>3 · Chunks — post <span id="chunkpost"></span></h2>
+    <div id="chunks"></div>
+  </section>
+
+  <section class="panel">
+    <h2>4 · Test retrieval — hybrid (vector + full-text, RRF fused)</h2>
+    <input id="query" placeholder="e.g. What is the CSE tuition fee?  /  সিএসই ভর্তি ফি কত?"
+           onkeydown="if(event.key==='Enter')runSearch()">
+    <button class="primary" onclick="runSearch()">Search</button>
+    <div id="results" style="margin-top:14px"></div>
+  </section>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+async function api(path, opts) {
+  const res = await fetch(path, {
+    headers: {'Content-Type': 'application/json'},
+    ...opts,
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}));
+    throw new Error(detail.detail || res.statusText);
+  }
+  return res.json();
+}
+
+function pillClass(status) {
+  if (status === 'AI training complete') return 'complete';
+  if (status === 'AI training failed') return 'failed';
+  if (status === 'AI training in progress') return 'progress';
+  if (status === 'verified') return 'verified';
+  if (status === 'published') return 'published';
+  return 'draft';
+}
+
+async function loadHealth() {
+  try {
+    const h = await api('/api/health');
+    const db = h.database, em = h.embedding_service;
+    $('health').innerHTML =
+      `<span><span class="dot ${db.ok?'ok':'bad'}"></span>Postgres</span>` +
+      `<span><span class="dot ${em.ok?'ok':'bad'}"></span>Embeddings` +
+      (em.ok && em.detail.device ? ` (${em.detail.device})` : '') + `</span>`;
+    $('configline').textContent =
+      `model ${h.config.model_name} · ${h.config.dim} dims · chunks ~${h.config.chunk_target_tokens} tokens ` +
+      `with ${h.config.chunk_overlap_tokens} overlap`;
+    if (db.ok && typeof db.detail === 'object') {
+      $('stages').innerHTML =
+        `<div class="stage"><b>${db.detail.posts}</b>posts</div>` +
+        `<div class="stage"><b>${db.detail.chunks}</b>chunks</div>` +
+        `<div class="stage"><b>${db.detail.vectors}</b>vectors</div>`;
+    }
+  } catch (e) {
+    $('health').innerHTML = `<span><span class="dot bad"></span>API unreachable</span>`;
+  }
+}
+
+async function loadPosts() {
+  try {
+    const posts = await api('/api/posts');
+    if (!posts.length) {
+      $('posts').innerHTML = '<tr><td colspan="8" class="muted">No posts yet.</td></tr>';
+      return;
+    }
+    $('posts').innerHTML = posts.map(p => `
+      <tr>
+        <td>${p.id}</td>
+        <td>${escapeHtml(p.title)}
+            ${p.fail_count ? `<div class="muted">${p.fail_count} failure(s)</div>` : ''}</td>
+        <td><span class="pill ${pillClass(p.status)}">${escapeHtml(p.status)}</span></td>
+        <td><span class="pill ${p.approval_status === 'approved' ? 'complete' : 'draft'}">${p.approval_status}</span></td>
+        <td>${p.ingest.chunk_count}</td>
+        <td>${p.ingest.vector_count}</td>
+        <td>${p.ingest.token_total || '—'}</td>
+        <td><div class="row-actions">
+          ${p.status === 'Draft' ? `<button onclick="act(${p.id},'publish')">Publish</button>` : ''}
+          ${p.approval_status !== 'approved' ? `<button onclick="act(${p.id},'approve')">Approve</button>` : ''}
+          ${p.approval_status === 'approved' && p.verify_status !== 'verified'
+            ? `<button class="primary" onclick="act(${p.id},'verify')">Verify → Ingest</button>` : ''}
+          ${p.verify_status === 'verified' ? `<button onclick="act(${p.id},'ingest')">Re-ingest</button>` : ''}
+          ${p.ingest.chunk_count ? `<button onclick="showChunks(${p.id})">Chunks</button>` : ''}
+        </div></td>
+      </tr>`).join('');
+  } catch (e) {
+    $('posts').innerHTML = `<tr><td colspan="8" class="muted">${escapeHtml(e.message)}</td></tr>`;
+  }
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function act(id, action) {
+  try {
+    await api(`/api/posts/${id}/${action}`, {method: 'POST'});
+    toast(action === 'verify' ? 'Verified — ingest running in background' : `${action} ok`);
+    await refresh();
+    if (action === 'verify' || action === 'ingest') {
+      // Ingest is async; poll briefly so the row lands on its final state.
+      for (let i = 0; i < 12; i++) {
+        await new Promise(r => setTimeout(r, 1000));
+        await refresh();
+      }
+    }
+  } catch (e) { toast('Error: ' + e.message); }
+}
+
+async function createPost() {
+  const title = $('title').value.trim();
+  if (!title) return toast('Title is required');
+  try {
+    await api('/api/posts', {
+      method: 'POST',
+      body: JSON.stringify({title, body: $('body').value}),
+    });
+    $('title').value = ''; $('body').value = '';
+    toast('Draft created');
+    refresh();
+  } catch (e) { toast('Error: ' + e.message); }
+}
+
+async function showChunks(id) {
+  const chunks = await api(`/api/posts/${id}/chunks`);
+  $('chunkpost').textContent = id;
+  $('chunkpanel').hidden = false;
+  $('chunks').innerHTML = chunks.map(c => `
+    <div class="chunk">
+      <div class="muted">
+        chunk ${c.chunk_index} · ${c.token_count} tokens ·
+        ${c.has_vector ? `vector stored (${escapeHtml(c.model_name)})` : 'NO VECTOR'}
+      </div>
+      <pre>${escapeHtml(c.chunk_text)}</pre>
+    </div>`).join('');
+  $('chunkpanel').scrollIntoView({behavior: 'smooth'});
+}
+
+async function runSearch() {
+  const query = $('query').value.trim();
+  if (!query) return;
+  $('results').innerHTML = '<span class="muted">searching…</span>';
+  try {
+    const data = await api('/api/search', {
+      method: 'POST',
+      body: JSON.stringify({query, top_k: 5}),
+    });
+    if (!data.hits.length) {
+      $('results').innerHTML = '<span class="muted">No matches. Has anything been ingested yet?</span>';
+      return;
+    }
+    $('results').innerHTML = data.hits.map((h, i) => `
+      <div class="hit">
+        <div class="meta">
+          #${i + 1} · post ${h.post_id} · chunk ${h.chunk_index} ·
+          RRF ${h.score.toFixed(4)} ·
+          vector rank ${h.vector_rank ?? '—'} · text rank ${h.text_rank ?? '—'}
+        </div>
+        <b>${escapeHtml(h.post_title)}</b>
+        <pre style="white-space:pre-wrap;font-size:12px;margin:6px 0 0">${escapeHtml(h.chunk_text.slice(0, 400))}</pre>
+      </div>`).join('');
+  } catch (e) {
+    $('results').innerHTML = `<span class="muted">${escapeHtml(e.message)}</span>`;
+  }
+}
+
+async function ingestAll() {
+  const posts = await api('/api/posts');
+  const targets = posts.filter(p => p.approval_status === 'approved'
+                                 && p.verify_status === 'verified');
+  if (!targets.length) return toast('No approved + verified posts');
+  for (const p of targets) await api(`/api/posts/${p.id}/ingest`, {method: 'POST'});
+  toast(`Queued ${targets.length} post(s)`);
+  for (let i = 0; i < 15; i++) {
+    await new Promise(r => setTimeout(r, 1000));
+    await refresh();
+  }
+}
+
+async function seedDemo() {
+  toast('Run: uv run python scripts/seed.py');
+}
+
+async function refresh() { await Promise.all([loadHealth(), loadPosts()]); }
+refresh();
+setInterval(loadHealth, 5000);
+</script>
+</body>
+</html>

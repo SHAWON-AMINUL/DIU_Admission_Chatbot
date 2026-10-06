@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.py[cod]
+.env
+.pytest_cache/
+.ruff_cache/
+.DS_Store
+
+# Agent tooling (not part of the app)
+tests/
+CLAUDE.md
+.claude/
+.agents/
+.superpowers/
+skills-lock.json

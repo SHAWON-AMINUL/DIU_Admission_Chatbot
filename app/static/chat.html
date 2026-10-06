@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DIU Admission Assistant</title>
+<style>
+  :root {
+    /* Dhaka International University brand, taken from the live site.
+       #01AA4D is the green diu.ac uses for backgrounds, icon fills and
+       highlighted headings (assets/css/style.css:24,65,80,116). #930D1A is its
+       red -- the colour of every <a>, of nav hover and of dropdown hover
+       (assets/css/custom.css:67,71,208,244), which is why links here are red
+       and actions are green, matching the real site rather than inverting it.
+       White on #01AA4D measures only 3.06:1, below the 4.5:1 AA floor for
+       text, so anything carrying white text uses the deepened green (5.4:1)
+       while #01AA4D stays for borders and fills where nothing sits on top. */
+    --brand-green: #01aa4d;
+    --brand-green-deep: #017a37;
+    --brand-red: #930d1a;
+
+    --bg: #f6f7f9; --panel: #fff; --ink: #16181d; --muted: #6b7280;
+    --line: #e3e6ea; --accent: #017a37; --warn-bg: #fff8e6; --warn-ink: #9a6700;
+    --bubble-user: #017a37; --bubble-user-ink: #fff; --radius: 10px;
+    /* The submit button carries text, so it needs its own pair. */
+    --btn-bg: #017a37; --btn-ink: #fff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115; --panel: #171a21; --ink: #e8eaed; --muted: #9aa3af;
+      --line: #262b35; --accent: #2ecc71; --warn-bg: #2b2413; --warn-ink: #d29922;
+      --bubble-user: #017a37; --bubble-user-ink: #fff;
+      /* #930D1A is near-unreadable on #0f1115, and #01AA4D is muddy there, so
+         both brand colours are lifted for dark mode rather than reused raw. */
+      --brand-green: #2ecc71; --brand-red: #e4707c;
+      /* White on #2ecc71 is 2.10:1 -- unreadable. Dark ink on it is 9.0:1. */
+      --btn-bg: #2ecc71; --btn-ink: #08130c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); height: 100vh;
+    display: flex; flex-direction: column;
+    font: 14px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans Bengali", sans-serif;
+  }
+  header {
+    background: var(--panel); border-bottom: 3px solid var(--brand-green);
+    padding: 14px 22px; display: flex; align-items: center; gap: 12px;
+  }
+  h1 { font-size: 16px; margin: 0; font-weight: 650; }
+  header a { margin-left: auto; color: var(--brand-red); font-size: 12px; }
+  .banner {
+    background: var(--warn-bg); color: var(--warn-ink); padding: 9px 22px;
+    font-size: 12.5px; border-bottom: 1px solid var(--line);
+  }
+  #log { flex: 1; overflow-y: auto; padding: 22px; max-width: 780px; margin: 0 auto; width: 100%; }
+  .msg { margin-bottom: 18px; display: flex; }
+  .msg.user { justify-content: flex-end; }
+  /* Citations and expanded chunks are appended as siblings of the bubble, so
+     the bot row must stack rather than lay them out beside it. */
+  .msg.bot { flex-direction: column; align-items: flex-start; }
+  .bubble {
+    padding: 10px 14px; border-radius: var(--radius); max-width: 78%;
+    white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  .user .bubble { background: var(--bubble-user); color: var(--bubble-user-ink); }
+  .bot .bubble { background: var(--panel); border: 1px solid var(--line); }
+  .cites { margin-top: 9px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .cite {
+    font-size: 11.5px; border: 1px solid var(--line); background: var(--bg);
+    color: var(--muted); border-radius: 999px; padding: 3px 10px; cursor: pointer;
+  }
+  .cite:hover { border-color: var(--brand-red); color: var(--brand-red); }
+  .chunk {
+    margin-top: 8px; font-size: 12.5px; color: var(--muted);
+    border-left: 2px solid var(--line); padding: 4px 0 4px 10px; white-space: pre-wrap;
+  }
+  .empty { color: var(--muted); text-align: center; margin-top: 12vh; }
+  .example {
+    display: block; margin: 8px auto; background: var(--panel); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 999px; padding: 7px 15px;
+    cursor: pointer; font: inherit;
+  }
+  .example:hover { border-color: var(--accent); }
+  footer { border-top: 1px solid var(--line); background: var(--panel); padding: 14px 22px; }
+  form { display: flex; gap: 10px; max-width: 780px; margin: 0 auto; }
+  /* --accent, not --brand-green: #01AA4D on the light background is 2.86:1,
+     under the 3:1 floor for a UI affordance. --accent is the deepened green
+     in light mode and the bright one in dark, so both sides clear it. */
+  input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  input {
+    flex: 1; padding: 11px 14px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--bg); color: var(--ink); font: inherit;
+  }
+  button[type=submit] {
+    border: 1px solid var(--btn-bg); background: var(--btn-bg); color: var(--btn-ink);
+    border-radius: 8px; padding: 9px 18px; font: inherit; cursor: pointer;
+  }
+  button[disabled] { opacity: .5; cursor: not-allowed; }
+</style>
+</head>
+<body>
+<header>
+  <h1>DIU Admission Assistant</h1>
+  <a href="/">Ingestion dashboard →</a>
+</header>
+<div class="banner" id="banner">⚠ Sample data. Every fee, deadline and GPA figure here is invented for testing and is NOT real DIU information.</div>
+
+<div id="log">
+  <div class="empty" id="empty">
+    <p>Ask about admission at Dhaka International University.</p>
+    <button class="example">What is the CSE tuition fee per credit?</button>
+    <button class="example">সিএসই ভর্তি ফি কত টাকা?</button>
+  </div>
+</div>
+
+<footer>
+  <form id="form">
+    <input id="q" autocomplete="off" placeholder="Ask a question…  /  একটি প্রশ্ন করুন…" required>
+    <button type="submit" id="send">Send</button>
+  </form>
+</footer>
+
+<script>
+const log = document.getElementById('log');
+const form = document.getElementById('form');
+const input = document.getElementById('q');
+const send = document.getElementById('send');
+const banner = document.getElementById('banner');
+
+// The transcript the server never sees between requests: this page is the
+// only place conversation state lives, which is why the API stays stateless.
+let history = [];
+let maxTurns = 6;
+
+// The banner is visible by default in the HTML. Only hide it on an explicit
+// corpus_is_synthetic === false; any failure to reach /api/ui-config (offline,
+// non-200, malformed JSON) must never silently remove the warning, so the
+// visible state is the safe default and there is no code path that hides it
+// except a confirmed "this corpus is real" answer from the server.
+fetch('/api/ui-config').then(r => r.json()).then(cfg => {
+  maxTurns = cfg.max_history_turns;
+  if (cfg.corpus_is_synthetic === false) {
+    banner.hidden = true;
+  }
+}).catch(() => {
+  // Leave the banner visible. Failing to reach /api/ui-config must not be
+  // read as "the corpus is real" -- fail closed, not open.
+});
+
+function bubble(role, text) {
+  document.getElementById('empty')?.remove();
+  const wrap = document.createElement('div');
+  wrap.className = 'msg ' + role;
+  const b = document.createElement('div');
+  b.className = 'bubble';
+  b.textContent = text;
+  wrap.appendChild(b);
+  log.appendChild(wrap);
+  log.scrollTop = log.scrollHeight;
+  return b;
+}
+
+function renderCitations(bubbleEl, sources) {
+  if (!sources.length) return;
+  const row = document.createElement('div');
+  row.className = 'cites';
+  sources.forEach((s, i) => {
+    const chip = document.createElement('button');
+    chip.className = 'cite';
+    chip.textContent = `[${i + 1}] ${s.post_title}`;
+    chip.onclick = () => {
+      const open = bubbleEl.parentElement.querySelector(`[data-chunk="${i}"]`);
+      if (open) { open.remove(); return; }
+      const pre = document.createElement('div');
+      pre.className = 'chunk';
+      pre.dataset.chunk = i;
+      pre.textContent = s.chunk_text;
+      bubbleEl.parentElement.appendChild(pre);
+    };
+    row.appendChild(chip);
+  });
+  bubbleEl.parentElement.appendChild(row);
+}
+
+// Appended (never used to replace what is already rendered) whenever a
+// stream ends without a clean "done" frame, so a truncated answer is never
+// mistaken for a complete one -- the one failure shape this UI must not
+// produce silently.
+function incompleteNotice(detail) {
+  return '\n\n⚠ Incomplete: ' + detail;
+}
+
+// Builds the bubble text for an error/dropped-stream case: append the notice
+// to whatever answer text has already arrived rather than replacing it, but
+// don't leave leading blank lines when nothing has arrived yet.
+function withIncompleteNotice(answerSoFar, detail) {
+  return answerSoFar ? answerSoFar + incompleteNotice(detail) : '⚠ Incomplete: ' + detail;
+}
+
+async function ask(question) {
+  bubble('user', question);
+  const out = bubble('bot', '');
+  send.disabled = input.disabled = true;
+
+  let answer = '';
+  let sawError = false;
+  let sawDone = false;
+  try {
+    const res = await fetch('/api/chat/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, history: history.slice(-maxTurns * 2) }),
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      // Frames are \n\n-delimited; a chunk may split one, so keep the tail.
+      const parts = buffer.split('\n\n');
+      buffer = parts.pop();
+      for (const part of parts) {
+        if (!part.startsWith('data: ')) continue;
+        const frame = JSON.parse(part.slice(6));
+        if (frame.type === 'sources') renderCitations(out, frame.sources);
+        else if (frame.type === 'token') { answer += frame.text; out.textContent = answer; }
+        else if (frame.type === 'error') { sawError = true; out.textContent = withIncompleteNotice(answer, frame.detail); }
+        else if (frame.type === 'done') sawDone = true;
+        log.scrollTop = log.scrollHeight;
+      }
+    }
+    // Flush any incomplete multi-byte sequence (Bangla is multi-byte UTF-8)
+    // left buffered inside the decoder when the stream closed. If the stream
+    // was dropped mid-frame this leftover segment can be malformed JSON; that
+    // must not destroy an answer already rendered on screen, so it gets its
+    // own try/catch rather than sharing the outer one.
+    try {
+      buffer += decoder.decode();
+      if (buffer.startsWith('data: ')) {
+        const frame = JSON.parse(buffer.slice(6));
+        if (frame.type === 'sources') renderCitations(out, frame.sources);
+        else if (frame.type === 'token') { answer += frame.text; out.textContent = answer; }
+        else if (frame.type === 'error') { sawError = true; out.textContent = withIncompleteNotice(answer, frame.detail); }
+        else if (frame.type === 'done') sawDone = true;
+        log.scrollTop = log.scrollHeight;
+      }
+    } catch (flushErr) {
+      // Malformed trailing fragment -- leave whatever was already rendered
+      // in place rather than discarding it, and fall through to the
+      // sawDone check below so the incompleteness is still surfaced.
+    }
+    // A dropped connection with no error frame and no done frame is just as
+    // incomplete as an explicit error -- the applicant must not be left
+    // believing a truncated answer is the whole answer.
+    if (!sawError && !sawDone) {
+      out.textContent = withIncompleteNotice(answer, 'The connection ended before the answer finished.');
+    }
+  } catch (err) {
+    out.textContent = withIncompleteNotice(answer, 'Could not reach the assistant: ' + err.message);
+  } finally {
+    send.disabled = input.disabled = false;
+    input.focus();
+  }
+
+  if (answer) {
+    history.push({ role: 'user', content: question },
+                 { role: 'assistant', content: answer });
+    history = history.slice(-maxTurns * 2);
+  }
+}
+
+form.onsubmit = (e) => {
+  e.preventDefault();
+  const question = input.value.trim();
+  if (!question) return;
+  input.value = '';
+  ask(question);
+};
+
+document.addEventListener('click', (e) => {
+  if (e.target.classList.contains('example')) ask(e.target.textContent);
+});
+</script>
+</body>
+</html>
